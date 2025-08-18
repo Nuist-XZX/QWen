@@ -205,3 +205,15 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Mine
+Muice_Dataset/
+QWen1_5_0_5B/
+Pre_dataset/
+qwen_finetuned/
+*.pdf
+*.pth
+*.bin
+*.h5
+*.zip
+*.weights
