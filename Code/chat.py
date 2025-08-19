@@ -9,12 +9,15 @@ import os
 import sys
 import time
 import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline, StoppingCriteria, StoppingCriteriaList
+import warnings
+# 忽略特定的警告
+warnings.filterwarnings("ignore", category=UserWarning, message="1Torch was not compiled with flash attention.")
 
+from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline, StoppingCriteria, StoppingCriteriaList
 from termcolor import colored
 
 # =============== 配置区域 ===============
-MODEL_DIR = "./qwen_finetuned"  # 您保存微调模型的目录
+MODEL_DIR = "./qwen_finetuned/30"  # 您保存微调模型的目录
 MAX_NEW_TOKENS = 512  # 生成回复的最大长度
 TEMPERATURE = 0.7     # 创造性（0.1-1.0，值越大越有创意）
 TOP_P = 0.9           # 核采样（0.0-1.0）

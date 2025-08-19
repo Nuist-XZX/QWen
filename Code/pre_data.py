@@ -1,3 +1,4 @@
+# 将数据集转换成 Qwen1.5 格式并保存为文本文件
 import json
 import logging
 from datasets import Dataset

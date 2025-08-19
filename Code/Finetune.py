@@ -11,19 +11,20 @@ from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 from datasets import Dataset
 
 # =============== 配置区域 ===============
-# 修改这些参数以适应您的环境
-MODEL_NAME = "./QWen1_5_0_5B"  # 模型名称
-RAW_DATA_PATH = "./Muice_Dataset/train.jsonl"  # 您的原始数据集路径
-OUTPUT_DIR = "./qwen_finetuned"  # 微调后模型保存路径
-MAX_SEQ_LENGTH = 1024  # 最大序列长度（Qwen1.5-0.5B 支持 32768，但微调建议 2048）
-LORA_R = 8  # LoRA 秩
-LORA_ALPHA = 32  # LoRA alpha
-LORA_DROPOUT = 0.1  # LoRA dropout
-BATCH_SIZE = 2  # 每设备批次大小
-GRAD_ACCUM_STEPS = 8  # 梯度累积步数
-LEARNING_RATE = 2e-5  # 学习率
-NUM_EPOCHS = 3  # 训练轮数
-FP16 = True  # 是否使用 FP16（如果 GPU 支持）
+# 路径、参数
+MODEL_NAME       = "./QWen1_5_0_5B"               # 模型名称/路径
+RAW_DATA_PATH    = "./Muice_Dataset/train.jsonl"  # 原始数据集路径
+RAW_TEST_PATH    = "./Muice_Dataset/test.jsonl"   # 原始测试集路径
+OUTPUT_DIR       = "./qwen_finetuned/30"          # 微调后模型保存路径
+MAX_SEQ_LENGTH   = 1024                           # 最大序列长度（Qwen1.5-0.5B 支持 32768，但微调建议 2048）
+LORA_R           = 8                              # LoRA 秩
+LORA_ALPHA       = 32                             # LoRA alpha
+LORA_DROPOUT     = 0.1                            # LoRA dropout
+BATCH_SIZE       = 2                              # 每设备批次大小
+GRAD_ACCUM_STEPS = 8                              # 梯度累积步数
+LEARNING_RATE    = 2e-5                           # 学习率
+NUM_EPOCHS       = 30                             # 训练轮数
+FP16             = True                           # 是否使用 FP16（如果 GPU 支持）
 # ======================================
 
 # 设置日志
@@ -136,6 +137,11 @@ def main():
         raw_data_path=RAW_DATA_PATH,
         output_path=None  # 保存转换后的文本（用于检查）
     )
+
+    data_test = convert_dataset(
+        raw_data_path=RAW_TEST_PATH,
+        output_path=None  # 保存转换后的文本（用于检查）
+    )
     
     # 2. 加载并准备模型
     tokenizer, model = load_and_prepare_model(
@@ -167,6 +173,14 @@ def main():
         remove_columns=dataset.column_names,
         desc="Tokenizing and chunking...",
     )
+
+    tokenized_data_test = data_test.map(
+        tokenize_function,
+        batched=True,
+        num_proc=4,
+        remove_columns=data_test.column_names,
+        desc="Tokenizing and chunking...",
+    )
     
     # 4. 配置训练参数
     training_args = TrainingArguments(
@@ -174,6 +188,7 @@ def main():
         overwrite_output_dir=True,
         num_train_epochs=NUM_EPOCHS,
         per_device_train_batch_size=BATCH_SIZE,
+        per_device_eval_batch_size=BATCH_SIZE,
         gradient_accumulation_steps=GRAD_ACCUM_STEPS,
         learning_rate=LEARNING_RATE,
         weight_decay=0.01,
@@ -181,7 +196,8 @@ def main():
         logging_strategy="steps",
         logging_steps=10,
         save_strategy="epoch",
-        eval_strategy="no",
+        # eval_strategy="no",
+        eval_strategy="epoch", # 每轮后使用测试集进行评估
         fp16=FP16,
         bf16=False,
         optim="paged_adamw_8bit",  # 配合 4-bit 量化
@@ -203,10 +219,11 @@ def main():
     
     # 6. 创建 Trainer
     trainer = Trainer(
-        model=model,
-        args=training_args,
-        train_dataset=tokenized_dataset,
-        data_collator=data_collator
+        model =  model,
+        args  = training_args,
+        train_dataset = tokenized_dataset,
+        eval_dataset  = tokenized_data_test,
+        data_collator = data_collator
     )
     
     # 7. 开始训练
